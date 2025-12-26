@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patříme k sobě? – Každodenní slovní hádanka</title>
+    <meta name="description" content="Najděte čtyři skupiny slov, které mají něco společného. Nová česká slovní hra pro každý den.">
+    <meta name="keywords" content="slovní hra, hádanka, čeština, connections, patříme k sobě, kvíz">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <meta property="og:title" content="Patříme k sobě?">
+    <meta property="og:description" content="Podaří se vám rozluštit dnešní slovní skupiny?">
+    <meta property="og:image" content="https://tvoje-domena.cz/nahledovy-obrazek.jpg"> <meta property="og:url" content="https://tvoje-domena.cz">
+    <meta property="og:type" content="website">
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+    :root {
+        --yellow: #FBD96D; /* Teplejší žlutá */
+        --green: #2e8b57;  /* mořská zelená */
+        --blue: #006994;   /* mořská modř */
+        --red: #cf352e; /* red flame */
+        --bg: #F8F7F2;     /* Off-white barva papíru, působí to prémiověji než čistě bílá */
+        --text: #1A1A1A;
+        --btn-bg: #EBEADE;
+        --btn-selected: #333333;
+        --dot: #162f65;
+    }
+
+        body {
+            font-family: 'Libre Franklin', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .header {
+            border-bottom: none;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+            padding-bottom: 5px;
+            margin-bottom: 35px;
+        }
+
+        h1 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 40px;
+            font-weight: 700; /* Výrazný Bold */
+            margin: 0;
+            color: #1a1a1b;
+            text-transform: none;
+            letter-spacing: -1.5px; /* Stažení písmen pro moderní look */
+            line-height: 1.1;
+        }
+
+        /* Speciální úprava pro otazník */
+        h1 span {
+            color: var(--dot);
+            font-weight: 800;
+            display: inline-block;
+            margin-left: 1px;
+            /* Jemný efekt prolnutí barvy */
+            filter: drop-shadow(0px 2px 4px rgba(186, 129, 197, 0.3));
+        }
+
+        #game-date {
+            font-family: 'Libre Franklin', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #999;
+            margin-top: 12px;
+        }
+        #player-stats {
+            text-align: center;
+            font-family: 'Libre Franklin', sans-serif;
+            font-weight: 700;
+            margin-top: 12px;
+            font-size: 0.9em;
+            color: #999;
+        }
+        /* Designová tečka pod nadpisem */
+        .header::after {
+            content: "";
+            display: block;
+            width: 30px;
+            height: 4px;
+            background: var(--dot);
+            margin: 15px auto 0;
+            border-radius: 10px;
+        }
+
+        .instruction {
+            font-family: 'Poppins', sans-serif;
+            font-size: 15px;
+            color: #555;
+            margin: 20px 0 0; /* Větší mezera nahoře */
+            font-weight: 700;
+            line-height: 1.4;
+            max-width: 400px; /* Aby se věta na desktopu neroztáhla moc do šířky */
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        #game-container { max-width: 500px; width: 100%; position: relative; }
+
+        #message-container {
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        #message {
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 15px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.7s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            pointer-events: none;
+            display: inline-block;
+            z-index: 100;
+        }
+
+        #message.show {
+            opacity: 1 !important;
+            transform: translateY(0);
+        }
+
+        #solved-container { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+
+        .solved-row div { font-weight: bold; text-transform: uppercase; font-size: 16px; }
+        .solved-row span { font-weight: normal; text-transform: uppercase; font-size: 13px; margin-top: 2px; }
+
+        #game-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 30px; }
+
+        .word-btn {
+            background: var(--btn-bg);
+            text-transform: uppercase; /* Všechna písmena budou velká */
+            border: none;
+            padding: 5px;
+            border-radius: 6px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 14px;
+            text-transform: uppercase;
+            height: 62px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s;
+        }
+
+
+        .word-btn.selected { background: var(--btn-selected); color: white; }
+
+        .cat-0 { background: var(--yellow); color: #000; }
+        .cat-1 { background: var(--green); color: #000; }
+        .cat-2 { background: var(--blue); color: #000; }
+        .cat-3 { background: var(--red); color: white; }
+
+        #lives-container {
+            font-family: 'Poppins', sans-serif;
+            font-size: 15px;
+            color: #555;
+            font-weight: 400;
+            line-height: 1.4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        .dot { width: 12px; height: 12px; background: var(--dot); border-radius: 50%; transition: background 0.3s; }
+        .dot.lost { background: #e2e2e2; }
+
+        .controls { display: flex; justify-content: center; gap: 12px; }
+
+        .control-btn {
+            background: transparent;
+            border: 1px solid #000;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        #submit-btn { background: #000; color: #fff; }
+        #submit-btn:disabled { background: #fff; color: #ccc; border-color: #ccc; cursor: not-allowed; }
+
+        @keyframes pop { 0% { transform: scale(0.9); } 100% { transform: scale(1); } }
+        .shake { animation: shake 0.5s; }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+        }
+        /* Plynulé vynoření a zvětšení s odrazem */
+        @keyframes slidePop {
+            0% {
+                opacity: 0;
+                transform: translateY(20px) scale(0.95);
+            }
+            60% {
+                opacity: 1;
+                transform: translateY(-5px) scale(1.02);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .solved-row {
+            height: 62px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            /* Použití nové animace */
+            animation: slidePop 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        /* Jemný efekt pro text uvnitř řádku */
+        .solved-row div {
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 16px;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+  <div class="header">
+      <h1>Patříme k sobě<span>?</span></h1>
+      <div id="game-date">Načítám datum...</div>
+      <div id="player-stats">
+    <span id="stat-count-text">Načítání statistik...</span>
+    <span id="stat-separator" style="margin: 0 10px;">|</span>
+    <span>Úspěšnost: <strong id="today-rate">...</strong></span>
+</div>
+      <p class="instruction">Najdi čtveřice slov, která k sobě opravdu patří. Každý den nová výzva.</p>
+  </div>
+
+    <div id="game-container">
+        <div id="message-container">
+            <div id="message"></div>
+        </div>
+
+        <div id="solved-container"></div>
+        <div id="game-grid"></div>
+
+        <div id="lives-container">
+            <span>Zbývá pokusů:</span>
+            <div id="dots-row" style="display: flex; gap: 8px;"></div>
+        </div>
+
+        <div class="controls" id="controls-area">
+            <button class="control-btn" id="deselect-btn" onclick="deselectAll()">Odznačit vše</button>
+            <button class="control-btn" id="submit-btn" onclick="checkSelection()" disabled>Odeslat</button>
+        </div>
+    </div>
+
+    <script>
+        let words = [];
+        let categories = [];
+        let selectedWords = [];
+        let lives = 4;
+        let gameOver = false;
+        let currentGameId = null;
+        let attemptsHistory = [];
+        let solvedIds = JSON.parse(localStorage.getItem('solved_connections') || "[]");
+
+        // PRO PRODUKCI: Zde později změň adresu na svou doménu (např. https://patrimeksobe.cz/api)
+        const API_URL = "https://vladimir371.pythonanywhere.com/api";
+
+        const MESSAGES = {
+            correct: ["Ti se pro sebe narodili!", "Láska na první pohled!", "Trefa!", "Výborně!", "Jo. Tohle k sobě patří.", "Tady to jiskří!", "Čistá práce.", "Našli společnou řeč!", "Souhra, jak má být!"],
+            oneAway: ["Jedno slovo ti to kazí.", "Jen kousíček!", "Skoro. Jedno slovo tam straší.", "Jedno slovo je jinak."],
+            wrong: ["Odvážné. Mylné.", "Zkus to znovu.", "To k sobě nepatří.", "Nene, tudy cesta nevede.", "Tohle je spíš náhodné setkání.", "Tady to na vztah nevypadá.", "Tudy cesta k oltáři nevede."],
+            alreadyGuessed: ["Tohle už jsme spolu řešili.", "To už jsi zkoušel!", "Opakování je matka moudrosti, ale tudy ne.", "Stejný pokus, stejný výsledek.", "Tenhle románek už jsi zkoušel.", "Tuhle scénu už jsme viděli."],
+            win: ["Geniální!", "Vyřešeno. Vesmír je zase v rovnováze.", "Všechno do sebe zapadlo.", "Tohle nebyla náhoda.", "Dneska dobrý.", "Naprostá harmonie! Všechno do sebe zapadlo."],
+            loss: ["Zítra to vyjde!", "Dneska nemáš den, že?", "Nevadí, zítra je taky den!", "Mozek má právo na slabší den."]
+        };
+
+        function getRandomMessage(type) {
+            const list = MESSAGES[type];
+            return list[Math.floor(Math.random() * list.length)];
+        }
+
+        function showMessage(text, duration = 4000) {
+            const msgEl = document.getElementById('message');
+            if (!msgEl) return;
+            msgEl.innerText = text;
+            msgEl.classList.add('show');
+            if (window.messageTimeout) clearTimeout(window.messageTimeout);
+            window.messageTimeout = setTimeout(() => {
+                if (!gameOver) msgEl.classList.remove('show');
+            }, duration);
+        }
+
+        function updateLivesUI() {
+            const container = document.getElementById('dots-row');
+            if (!container) return;
+            container.innerHTML = '';
+            for (let i = 0; i < 4; i++) {
+                const dot = document.createElement('div');
+                dot.className = i < lives ? 'dot' : 'dot lost';
+                container.appendChild(dot);
+            }
+        }
+
+        async function loadGameFromServer() {
+            try {
+                const response = await fetch(`${API_URL}/game/today`);
+                const gameData = await response.json();
+
+                if (gameData.error) {
+                    showMessage(gameData.error, 5000);
+                    return;
+                }
+
+                currentGameId = gameData.id;
+
+                // --- UNIKÁTNÍ NÁVŠTĚVA ---
+                const lastViewedKey = `last_viewed_game_${gameData.id}`;
+                if (!localStorage.getItem(lastViewedKey)) {
+                    await fetch(`${API_URL}/stats/view`, { method: 'POST' });
+                    localStorage.setItem(lastViewedKey, 'true');
+                }
+
+                // Načtení statistik až po započtení návštěvy
+                fetchGlobalStats();
+
+                if (gameData.date) {
+                    const d = new Date(gameData.date);
+                    document.getElementById('game-date').innerText = d.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' });
+                }
+
+                categories = gameData.categories;
+                words = [];
+                document.getElementById('solved-container').innerHTML = "";
+
+                categories.forEach((cat, index) => {
+                    cat.words.forEach(w => words.push({ text: w, catIndex: index }));
+                });
+
+                // Míchání slov
+                for (let i = words.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [words[i], words[j]] = [words[j], words[i]];
+                }
+
+                attemptsHistory = [];
+                lives = 4;
+                gameOver = false;
+                selectedWords = [];
+                updateLivesUI();
+                renderBoard();
+
+            } catch (error) {
+                console.error("Chyba:", error);
+                showMessage("Chyba spojení se serverem");
+            }
+        }
+
+        function renderBoard() {
+            const grid = document.getElementById('game-grid');
+            grid.innerHTML = '';
+            words.forEach((wordObj) => {
+                const btn = document.createElement('button');
+                btn.className = 'word-btn';
+                if (selectedWords.includes(wordObj)) btn.classList.add('selected');
+                btn.innerText = wordObj.text;
+                btn.onclick = () => toggleSelect(wordObj);
+                grid.appendChild(btn);
+            });
+            document.getElementById('submit-btn').disabled = selectedWords.length !== 4;
+        }
+
+        function toggleSelect(wordObj) {
+            if (gameOver) return;
+            if (selectedWords.includes(wordObj)) {
+                selectedWords = selectedWords.filter(w => w !== wordObj);
+            } else if (selectedWords.length < 4) {
+                selectedWords.push(wordObj);
+            }
+            renderBoard();
+        }
+
+        function checkSelection() {
+            if (selectedWords.length !== 4 || gameOver) return;
+
+            const currentAttempt = selectedWords.map(w => w.text).sort().join(',');
+
+            if (attemptsHistory.includes(currentAttempt)) {
+                showMessage(getRandomMessage('alreadyGuessed'));
+                const grid = document.getElementById('game-grid');
+                grid.classList.add('shake');
+                setTimeout(() => grid.classList.remove('shake'), 500);
+                return;
+            }
+
+            const firstCat = selectedWords[0].catIndex;
+            const isCorrect = selectedWords.every(w => w.catIndex === firstCat);
+
+            if (isCorrect) {
+                attemptsHistory.push(currentAttempt);
+                showMessage(getRandomMessage('correct'));
+
+                setTimeout(() => {
+                    const category = categories[firstCat];
+                    displaySolvedRow(category, firstCat);
+                    words = words.filter(w => w.catIndex !== firstCat);
+                    selectedWords = [];
+                    renderBoard();
+
+                    if (words.length === 0) {
+                        handleWin();
+                    }
+                }, 600);
+            } else {
+                attemptsHistory.push(currentAttempt);
+                const grid = document.getElementById('game-grid');
+                grid.classList.add('shake');
+
+                const counts = {};
+                selectedWords.forEach(w => counts[w.catIndex] = (counts[w.catIndex] || 0) + 1);
+                const isOneAway = Object.values(counts).includes(3);
+
+                setTimeout(() => {
+                    grid.classList.remove('shake');
+                    lives--;
+                    updateLivesUI();
+
+                    if (lives <= 0) {
+                        handleLoss();
+                    } else {
+                        showMessage(isOneAway ? getRandomMessage('oneAway') : getRandomMessage('wrong'));
+                        renderBoard();
+                    }
+                }, 500);
+            }
+        }
+
+        function handleWin() {
+            gameOver = true;
+            showMessage(getRandomMessage('win'), 5000);
+
+            // Zápis výhry pouze pokud je to první úspěch u této konkrétní hry
+            if (!solvedIds.includes(currentGameId)) {
+                fetch(`${API_URL}/stats/solve`, { method: 'POST' })
+                    .then(() => setTimeout(fetchGlobalStats, 1000));
+
+                saveGameProgress();
+            }
+        }
+
+        function handleLoss() {
+            gameOver = true;
+            showMessage(getRandomMessage('loss'), 5000);
+            selectedWords = [];
+            renderBoard();
+            revealAllSolutions();
+        }
+
+        function displaySolvedRow(category, idx) {
+            const container = document.getElementById('solved-container');
+            const row = document.createElement('div');
+            row.className = `solved-row cat-${idx}`;
+            row.innerHTML = `<div>${category.name}</div><span>${category.words.join(', ')}</span>`;
+            container.appendChild(row);
+        }
+
+        async function revealAllSolutions() {
+            const remainingCatIndexes = [...new Set(words.map(w => w.catIndex))];
+            for (let catIndex of remainingCatIndexes) {
+                const category = categories[catIndex];
+                const buttons = document.querySelectorAll('.word-btn');
+                buttons.forEach(btn => {
+                    if (category.words.includes(btn.innerText)) btn.style.opacity = '0';
+                });
+                await new Promise(r => setTimeout(r, 400));
+                displaySolvedRow(category, catIndex);
+                words = words.filter(w => w.catIndex !== catIndex);
+                renderBoard();
+                await new Promise(r => setTimeout(r, 400));
+            }
+            saveGameProgress();
+        }
+
+        function deselectAll() {
+            if (gameOver) return;
+            selectedWords = [];
+            renderBoard();
+        }
+
+        function saveGameProgress() {
+            if (!solvedIds.includes(currentGameId)) {
+                solvedIds.push(currentGameId);
+                localStorage.setItem('solved_connections', JSON.stringify(solvedIds));
+            }
+        }
+
+        // Pomocná funkce s upravenou barvou pro číslo
+        function getCzechViewsText(count) {
+            const n = Math.abs(count);
+            const styledNumber = `<strong id="today-views" style="color: #162f65;">${n}</strong>`;
+
+            if (n === 1) return `Dnešní hru už hrál ${styledNumber} člověk`;
+            if (n >= 2 && n <= 4) return `Dnešní hru už hráli ${styledNumber} lidé`;
+            return `Dnešní hru už hrálo ${styledNumber} lidí`;
+        }
+
+        async function fetchGlobalStats() {
+            try {
+                const response = await fetch(`${API_URL}/stats`);
+                const data = await response.json();
+
+                const views = data.views || 0;
+                const solves = data.solves || 0;
+
+                // 1. Aktualizace textu s počtem lidí
+                const statsTextElement = document.getElementById('stat-count-text');
+                if (statsTextElement) {
+                    statsTextElement.innerHTML = getCzechViewsText(views);
+                }
+
+                // 2. Výpočet a zobrazení úspěšnosti s barvou
+                const rate = views > 0 ? Math.round((solves / views) * 100) : 0;
+                const rateElement = document.getElementById('today-rate');
+                if (rateElement) {
+                    rateElement.innerText = rate + "%";
+                    rateElement.style.color = "#162f65"; // Nastavení barvy pro úspěšnost
+                }
+
+            } catch (error) {
+                console.error("Stats fetch failed:", error);
+                const statsContainer = document.getElementById('player-stats');
+                if (statsContainer) {
+                    statsContainer.style.display = 'none';
+                }
+            }
+        }
+        // Inicializace
+        window.onload = loadGameFromServer;
+    </script>
+</body>
+</html>

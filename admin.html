@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <title>Administrace Patříme k sobě?</title>
+    <meta name="robots" content="noindex, nofollow">
+    <style>
+    :root {
+        --bg-dark: #121212;
+        --card-bg: #1e1e1e;
+        --text-main: #e0e0e0;
+        --text-dim: #b0b0b0;
+        --accent: #2196F3;
+        --border: #333;
+        --input-bg: #2a2a2a;
+    }
+
+    body {
+        font-family: sans-serif;
+        max-width: 900px;
+        margin: 20px auto;
+        padding: 20px;
+        background: var(--bg-dark);
+        color: var(--text-main);
+    }
+
+    h1, h2 { color: #fff; }
+
+    /* Panel statistik v Dark Modu */
+    .stats-banner {
+        display: flex;
+        gap: 30px;
+        background: var(--card-bg);
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        border: 1px solid var(--border);
+    }
+    .stat-box { text-align: center; flex: 1; }
+    .stat-value { display: block; font-size: 1.5em; font-weight: bold; color: var(--accent); }
+    .stat-label { font-size: 0.8em; color: var(--text-dim); text-transform: uppercase; }
+
+    /* Položky v seznamu her */
+    .game-item {
+        background: var(--card-bg);
+        padding: 15px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .game-item strong, .game-item div { text-transform: uppercase; font-size: 0.85em; }
+
+    /* Tlačítka */
+    .btn { padding: 10px 15px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; transition: opacity 0.2s; }
+    .btn:hover { opacity: 0.8; }
+    .btn-gen { background: #4CAF50; color: white; width: 100%; font-size: 1.1em; margin-bottom: 20px; }
+    .btn-del { background: #cf352e; color: white; }
+    .btn-save { background: var(--accent); color: white; width: 100%; margin-top: 10px; }
+
+    /* Editor a vstupy */
+    #editor {
+        background: var(--card-bg);
+        padding: 20px;
+        border: 2px solid var(--accent);
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: none;
+    }
+    .category-edit { margin-bottom: 15px; padding: 10px; border-radius: 5px; }
+
+    input, textarea, select {
+        width: 100%;
+        margin: 5px 0;
+        padding: 8px;
+        box-sizing: border-box;
+        background: var(--input-bg);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: #fff;
+        font-weight: bold;
+    }
+
+    textarea { font-family: monospace; font-size: 13px; resize: vertical; font-weight: normal; color: #aaddff; }
+
+    /* Pastelové barvy kategorií (zachovány pro přehlednost, mírně utlumeny) */
+    .cat-0 { background: #FBD96D; color: #000; } /* Žlutá */
+    .cat-1 { background: #2e8b57; color: #000; } /* Zelená */
+    .cat-2 { background: #006994; color: #000; } /* Modrá */
+    .cat-3 { background: #cf352e; color: #fff; } /* Fialová */
+
+    .prompt-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    label { font-weight: bold; font-size: 0.9em; color: var(--text-dim); }
+</style>
+</head>
+<body>
+    <div id="admin-content">
+        <h1>Administrace her</h1>
+
+        <div class="stats-banner">
+            <div class="stat-box">
+                <span class="stat-label">Dnes hrálo</span>
+                <span id="stat-views" class="stat-value">0</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">Vyřešeno</span>
+                <span id="stat-solves" class="stat-value">0</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">Úspěšnost</span>
+                <span id="stat-rate" class="stat-value">0%</span>
+            </div>
+        </div>
+
+        <label for="model-select">Vyber AI mozek:</label>
+        <select id="model-select" class="control-select">
+            <option>Načítám dostupné modely...</option>
+        </select>
+
+        <div class="prompt-container">
+            <div>
+                <label for="prompt-input">1. Tvůrce (Generator):</label>
+                <textarea id="prompt-input" style="height: 300px;">
+                  Jsi zkušený tvůrce českých slovních her a hlavolamů na úrovni redaktora New York Times.
+                  VÝŠE máš uvedené příklady úspěšných her. Tvým hlavním cílem je:
+                  1. ZACHOVAT stejnou úroveň vtipu, logiky a kvality jako v příkladech.
+                  2. ZCELA SE VYHNOUT tématům a slovům, která se v příkladech objevují (nechceme duplicity).
+                  Perfektně ovládáš český jazyk, jeho významové odstíny, homonyma, frazémy a český kulturní kontext (historie, města, reálie).
+
+                  Tvým úkolem je vytvořit jednu hru „Patříme k sobě?“ (styl NYT Connections).Vrať POUZE čistý JSON objekt.
+
+                  Struktura JSON:
+                  {
+                    "categories": [
+                      {"name": "NÁZEV KAT 1 (Žlutá - nejlehčí)", "words": ["W1", "W2", "W3", "W4"], "color": 0},
+                      {"name": "NÁZEV KAT 2 (Zelená - střední)", "words": ["W1", "W2", "W3", "W4"], "color": 1},
+                      {"name": "NÁZEV KAT 3 (Modrá - těžká)", "words": ["W1", "W2", "W3", "W4"], "color": 2},
+                      {"name": "NÁZEV KAT 4 (Fialová - nejtěžší, slovní hříčka)", "words": ["W1", "W2", "W3", "W4"], "color": 3}
+                    ]
+                  }
+
+                  Pravidla pro tvorbu hry:
+                  SLOVA
+                  Použij přesně 16 unikátních českých slov.
+                  Slova mají být převážně podstatná jména, VELKÝM PÍSMEM, v 1. pádě jednotného čísla.
+                  Výjimky (množné číslo nebo vlastní jména) jsou povoleny pouze tehdy, pokud jsou nezbytné pro danou kategorii.
+                  Lze použít i ostatní slovní druhy.
+
+                  ZÁKAZ TRIVIÁLNOSTI
+                  Nepoužívej barvy, ovoce, dny v týdnu ani základní školní kategorie.
+                  Vyhýbej se příliš obecným třídám (např. „zvířata“, „nábytek“).
+                  Cílem je originalita a chytrý nápad.
+
+                  FALEŠNÉ STOPY (RED HERRINGS)
+                  Alespoň dvě slova musí na první pohled svádět k jiné kategorii než té správné.
+                  Tyto falešné stopy nesmí umožnit vznik alternativní kompletní čtveřice.
+
+                  KATEGORIE A OBTÍŽNOST
+                  Žlutá (yellow): Přímý, zjevný význam nebo běžná kategorie.
+                  Zelená (green): Specifičtější kontext nebo znalost (např. oblasti, typy, role).
+                  Modrá (blue): Abstraktnější spojení, české reálie nebo kulturní znalosti.
+                  Fialová (purple): Jedna jasná jazyková hříčka založená na jediném principu
+                  (např. společná předpona, přípona, skryté slovo, fonetická shoda, zkratka).
+                  Nekombinuj více principů v jedné fialové kategorii.
+
+                  FÉROVOST
+                  Každé slovo musí po logickém vyloučení patřit právě do jedné kategorie.
+                  Hra musí mít právě jedno jednoznačné řešení.
+
+                  JAZYK A KONTEXT
+                  Používej výhradně češtinu.
+                  Nepoužívej anglicismy ani cizí výrazy.
+                  Preferuj slova s více významy nebo kulturním přesahem v českém prostředí.
+                  </textarea>
+            </div>
+            <div>
+                <label for="critic-prompt-input">2. Kritik (Critic):</label>
+                <textarea id="critic-prompt-input" style="height: 300px;">
+                  Jsi elitní editor New York Times specializovaný na logické hry. Tvým úkolem je posoudit, zda má předložená hra "Patříme k sobě?" právě JEDNO unikátní řešení pro všech 16 slov.
+
+                  Vstupní JSON: {game_json}
+
+                  TVŮJ ANALYTICKÝ PROCES (Simulace hráče):
+                  1. POVINNÉ FALEŠNÉ STOPY: Identifikuj slova s více významy (homonyma). Falešné stopy jsou ŽÁDOUCÍ a zvyšují kvalitu hry.
+                  2. TEST "SLEPÉ ULIČKY": Pokud slovo X (např. KORUNA) pasuje do Kategorie A (Stromy) i Kategorie B (Peníze), zkus ho mentálně zařadit do Kategorie A.
+                     - Zbylo v Kategorii B stále dost slov (4), aby vytvořila logickou skupinu?
+                     - Pokud NE (zbyly jen 3 pojmy a žádný jiný z celých 16 se tam nehodí), je to SKVĚLÁ FALEŠNÁ STOPA. Hráč narazí na slepou uličku a musí se vrátit. (Stav: PASS)
+                  3. TEST "ROZBITÉ HRY": Pokud lze slova X a Y mezi kategoriemi libovolně prohodit a obě verze dávají 4 perfektní čtveřice, hra je ROZBITÁ. (Stav: FAIL)
+                  4. JAZYKOVÁ KVALITA: Fialová kategorie musí mít "Aha! moment". Modrá nesmí být příliš vágní (např. "Věci na S" je slabé, "Slova začínající na chemickou značku" je dobré).
+
+                  VÝSTUPNÍ FORMÁT (PŘÍSNĚ DODRŽET):
+                  Pokud hra projde testem unikátnosti (i přes silné falešné stopy):
+                  { "verdict": "PASS" }
+
+                  Pokud hra selže (existuje alternativní rozdělení všech 16 slov nebo je kategorie nesmyslná):
+                  {
+                    "verdict": "FAIL",
+                    "issues": [
+                      {
+                        "type": "ALTERNATIVE_SOLUTION | WEAK_LOGIC | INVALID_PURPLE",
+                        "description": "Popiš, proč hra nefunguje (např. 'Pokud dám KORUNA ke stromům, v penězích mi zbude GROŠ, TOLAR a DUKÁT, ale jako čtvrté slovo tam pasuje i BŘÍZA ze stromů, což vytváří 2 řešení')",
+                        "example": "Slovo/Kombinace, která to rozbíjí"
+                      }
+                    ]
+                  }</textarea>
+            </div>
+        </div>
+
+        <button class="btn btn-gen" onclick="generateNewGame(event)">✨ Dvoufázové generování (Tvůrce + Kritik)</button>
+
+        <div id="editor">
+            <h2 id="editor-title">Upravit vygenerovanou hru</h2>
+            <div id="editor-fields"></div>
+            <button class="btn btn-save" onclick="saveGame()">💾 Uložit hru do databáze</button>
+        </div>
+
+        <h2>Seznam her v databázi</h2>
+        <div id="games-list">Načítám seznam...</div>
+    </div>
+
+    <script>
+        const API_BASE = "https://vladimir371.pythonanywhere.com/api/admin";
+        const STATS_URL = "https://vladimir371.pythonanywhere.com/api/stats";
+        let adminPassword = localStorage.getItem('admin_password');
+
+        if (!adminPassword) {
+            adminPassword = prompt("Zadejte administrátorské heslo:");
+            localStorage.setItem('admin_password', adminPassword);
+        }
+
+        async function initializeAdmin() {
+            const res = await fetch(`${API_BASE}/list`, {
+                headers: { 'X-Admin-Password': adminPassword }
+            });
+
+            if (res.ok) {
+                document.getElementById('admin-content').style.display = 'block';
+                loadGames();
+                loadAvailableModels();
+                loadStats();
+            } else {
+                alert("Chybné heslo.");
+                localStorage.removeItem('admin_password');
+                location.reload();
+            }
+        }
+
+        async function adminFetch(url, options = {}) {
+            if (!options.headers) options.headers = {};
+            options.headers['X-Admin-Password'] = adminPassword;
+            options.headers['Content-Type'] = 'application/json';
+            try {
+                const response = await fetch(url, options);
+                if (response.status === 401) {
+                    localStorage.removeItem('admin_password');
+                    location.reload();
+                    return null;
+                }
+                return response;
+            } catch (err) {
+                console.error("Chyba spojení:", err);
+                throw err;
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch(STATS_URL);
+                const data = await res.json();
+                document.getElementById('stat-views').innerText = data.views;
+                document.getElementById('stat-solves').innerText = data.solves;
+                const rate = data.views > 0 ? Math.round((data.solves / data.views) * 100) : 0;
+                document.getElementById('stat-rate').innerText = rate + "%";
+            } catch (e) { console.error("Statistiky nešlo načíst"); }
+        }
+
+        async function loadAvailableModels() {
+            const select = document.getElementById('model-select');
+            try {
+                const response = await adminFetch(`${API_BASE}/available-models`);
+                const models = await response.json();
+                select.innerHTML = '';
+                models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.id;
+                    option.text = model.display_name;
+                    if (model.id.includes('2.0-flash')) option.selected = true;
+                    select.appendChild(option);
+                });
+            } catch (error) { select.innerHTML = '<option>Chyba načítání modelů</option>'; }
+        }
+
+        async function generateNewGame(event) {
+            const btn = event.target;
+            const originalText = btn.innerText;
+            const model = document.getElementById('model-select').value;
+            const prompt = document.getElementById('prompt-input').value;
+            const critic_prompt = document.getElementById('critic-prompt-input').value;
+
+            btn.innerText = "⏳ Probíhá analýza kritikem...";
+            btn.disabled = true;
+
+            try {
+                const res = await adminFetch(`${API_BASE}/generate`, {
+                    method: 'POST',
+                    body: JSON.stringify({ model, prompt, critic_prompt })
+                });
+
+                const result = await res.json();
+
+                if (result.status === "rejected") {
+                    // Sestavení detailního seznamu chyb z pole all_issues
+                    let errorDetails = "";
+                    if (result.all_issues && Array.isArray(result.all_issues)) {
+                        errorDetails = result.all_issues.map(iss =>
+                            `• [${iss.type}]: ${iss.description}${iss.example ? ' (Např: ' + iss.example + ')' : ''}`
+                        ).join('\n');
+                    } else {
+                        errorDetails = result.message;
+                    }
+
+                    alert("❌ KRITIK HRU ODMÍTL:\n\n" + errorDetails);
+
+                    document.getElementById('editor-title').innerText = "⚠️ Odmítnutý návrh (vyžaduje opravu)";
+                    displayGeneratedGame(result.data);
+
+                } else if (result.status === "approved") {
+                    alert("✅ KRITIK HRU SCHVÁLIL!");
+                    document.getElementById('editor-title').innerText = "✨ Schválený návrh připraven k uložení";
+                    displayGeneratedGame(result.data);
+
+                } else if (result.error) {
+                    alert("Chyba AI: " + result.error);
+                }
+            } catch (e) {
+                alert("Generování selhalo: " + e.message);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        function displayGeneratedGame(gameData) {
+            const editor = document.getElementById('editor');
+            const fields = document.getElementById('editor-fields');
+            editor.style.display = 'block';
+            fields.innerHTML = '';
+
+            if (!gameData.categories) return;
+
+            gameData.categories.forEach((cat, i) => {
+                const div = document.createElement('div');
+                div.className = `category-edit cat-${i}`;
+                div.innerHTML = `
+                    <input type="text" id="cat-name-${i}" value="${cat.name}" placeholder="Název kategorie">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 5px;">
+                        <input type="text" id="cat-w-${i}-0" value="${cat.words[0]}">
+                        <input type="text" id="cat-w-${i}-1" value="${cat.words[1]}">
+                        <input type="text" id="cat-w-${i}-2" value="${cat.words[2]}">
+                        <input type="text" id="cat-w-${i}-3" value="${cat.words[3]}">
+                    </div>
+                `;
+                fields.appendChild(div);
+            });
+            editor.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function saveGame() {
+            const categories = [];
+            for(let i=0; i<4; i++) {
+                categories.push({
+                    name: document.getElementById(`cat-name-${i}`).value,
+                    words: [
+                        document.getElementById(`cat-w-${i}-0`).value,
+                        document.getElementById(`cat-w-${i}-1`).value,
+                        document.getElementById(`cat-w-${i}-2`).value,
+                        document.getElementById(`cat-w-${i}-3`).value
+                    ],
+                    color: i
+                });
+            }
+
+            const res = await adminFetch(`${API_BASE}/save`, {
+                method: 'POST',
+                body: JSON.stringify({ categories })
+            });
+
+            if (res && res.ok) {
+                alert("Uloženo!");
+                document.getElementById('editor').style.display = 'none';
+                loadGames();
+            }
+        }
+
+        async function loadGames() {
+            const res = await adminFetch(`${API_BASE}/list`);
+            if (!res) return;
+            const games = await res.json();
+            const listDiv = document.getElementById('games-list');
+            listDiv.innerHTML = '';
+
+            games.forEach(game => {
+                const div = document.createElement('div');
+                div.className = 'game-item';
+
+                // Upravený výpočet v loadGames
+                const views = parseInt(game.final_views) || 0;
+                const solves = parseInt(game.final_solves) || 0;
+                const rate = views > 0 ? Math.round((solves / views) * 100) : 0;
+
+                // Vylepšený HTML řádek statistik
+                let statsHtml = `
+                    <div style="margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; font-size: 0.85em; color: var(--text-dim); display: flex; gap: 15px;">
+                        <span>📊 <strong>${views}</strong> hráčů</span>
+                        <span>✅ <strong>${solves}</strong> vyřešeno</span>
+                        <span style="color: ${rate > 50 ? '#4CAF50' : '#ff9800'}">📈 Úspěšnost: <strong>${rate}%</strong></span>
+                    </div>
+                `;
+
+                let statusInfo = game.used
+                    ? `<span style="color: #4CAF50; font-weight: bold;">✅ Publikováno: ${game.date_published}</span>`
+                    : `<span style="color: #999;">🕒 V pořadí (čeká)</span>`;
+
+                let categoriesHtml = game.categories.map((cat, i) => `
+                    <div style="margin-top: 5px; padding: 5px; border-radius: 4px; font-size: 0.8em;" class="cat-${i}">
+                        <strong>${cat.name}:</strong> ${cat.words.join(', ')}
+                    </div>
+                `).join('');
+
+                div.innerHTML = `
+                    <div style="flex-grow: 1;">
+                        <div style="margin-bottom: 4px; font-size: 0.9em;">
+                            <strong>Hra #${game.id}</strong> | ${statusInfo}
+                        </div>
+                        ${game.used ? statsHtml : ''}
+                        <div style="margin-top: 10px;">
+                            ${categoriesHtml}
+                        </div>
+                    </div>
+                    <button class="btn btn-del" onclick="deleteGame(${game.id})" style="align-self: flex-start; margin-left: 15px;">Smazat</button>
+                `;
+                listDiv.appendChild(div);
+            });
+        }
+
+        async function deleteGame(id) {
+            if (!confirm("Opravdu smazat?")) return;
+            await adminFetch(`${API_BASE}/delete`, {
+                method: 'POST',
+                body: JSON.stringify({ id })
+            });
+            loadGames();
+        }
+
+        initializeAdmin();
+    </script>
+</body>
+</html>
