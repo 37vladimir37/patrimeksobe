@@ -300,55 +300,63 @@ async function loadStats() {
             } catch (error) { select.innerHTML = '<option>Chyba načítání modelů</option>'; }
         }
 
-        async function generateNewGame(event) {
-            const btn = event.target;
-            const originalText = btn.innerText;
-            const model = document.getElementById('model-select').value;
-            const prompt = document.getElementById('prompt-input').value;
-            const critic_prompt = document.getElementById('critic-prompt-input').value;
+async function generateNewGame(event) {
+    const btn = event.target;
+    const originalText = btn.innerText;
+    const model = document.getElementById('model-select').value;
+    let basePrompt = document.getElementById('prompt-input').value;
+    const critic_prompt = document.getElementById('critic-prompt-input').value;
 
-            btn.innerText = "⏳ Probíhá analýza kritikem...";
-            btn.disabled = true;
+    btn.innerText = "⏳ Načítám kontext a generuji...";
+    btn.disabled = true;
 
-            try {
-                const res = await adminFetch(`${API_BASE}/generate`, {
-                    method: 'POST',
-                    body: JSON.stringify({ model, prompt, critic_prompt })
-                });
+    try {
+        // 1. Získání posledních her pro kontext
+        const listRes = await adminFetch(`${API_BASE}/list`);
+        const games = await listRes.json();
+        
+        // Vybereme posledních 5 her a vytvoříme z nich textový blok
+        const recentGamesContext = games.slice(0, 5).map(g => {
+            const categories = g.categories.map(c => `${c.name}: ${c.words.join(', ')}`).join(' | ');
+            return `- Hra #${g.id}: ${categories}`;
+        }).join('\n');
 
-                const result = await res.json();
+        // 2. Vložení kontextu do promptu (AI uvidí, co už vytvořila)
+        const finalPrompt = `ZDE JSOU POSLEDNÍ VYTVOŘENÉ HRY (VYHNI SE TĚMTO TÉMATŮM A SLOVŮM):\n${recentGamesContext}\n\n${basePrompt}`;
 
-                if (result.status === "rejected") {
-                    // Sestavení detailního seznamu chyb z pole all_issues
-                    let errorDetails = "";
-                    if (result.all_issues && Array.isArray(result.all_issues)) {
-                        errorDetails = result.all_issues.map(iss =>
-                            `• [${iss.type}]: ${iss.description}${iss.example ? ' (Např: ' + iss.example + ')' : ''}`
-                        ).join('\n');
-                    } else {
-                        errorDetails = result.message;
-                    }
+        // 3. Odeslání požadavku na generování
+        const res = await adminFetch(`${API_BASE}/generate`, {
+            method: 'POST',
+            body: JSON.stringify({ 
+                model, 
+                prompt: finalPrompt, // Posíláme rozšířený prompt
+                critic_prompt 
+            })
+        });
 
-                    alert("❌ KRITIK HRU ODMÍTL:\n\n" + errorDetails);
+        const result = await res.json();
 
-                    document.getElementById('editor-title').innerText = "⚠️ Odmítnutý návrh (vyžaduje opravu)";
-                    displayGeneratedGame(result.data);
-
-                } else if (result.status === "approved") {
-                    alert("✅ KRITIK HRU SCHVÁLIL!");
-                    document.getElementById('editor-title').innerText = "✨ Schválený návrh připraven k uložení";
-                    displayGeneratedGame(result.data);
-
-                } else if (result.error) {
-                    alert("Chyba AI: " + result.error);
-                }
-            } catch (e) {
-                alert("Generování selhalo: " + e.message);
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
+        // --- Zpracování výsledku (zůstává stejné) ---
+        if (result.status === "rejected") {
+            let errorDetails = result.all_issues ? result.all_issues.map(iss => 
+                `• [${iss.type}]: ${iss.description}`).join('\n') : result.message;
+            alert("❌ KRITIK HRU ODMÍTL:\n\n" + errorDetails);
+            document.getElementById('editor-title').innerText = "⚠️ Odmítnutý návrh";
+            displayGeneratedGame(result.data);
+        } else if (result.status === "approved") {
+            alert("✅ KRITIK HRU SCHVÁLIL!");
+            document.getElementById('editor-title').innerText = "✨ Schválený návrh";
+            displayGeneratedGame(result.data);
+        } else if (result.error) {
+            alert("Chyba AI: " + result.error);
         }
+    } catch (e) {
+        alert("Generování selhalo: " + e.message);
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
+}
 
         function displayGeneratedGame(gameData) {
             const editor = document.getElementById('editor');
@@ -467,6 +475,7 @@ async function loadGames() {
     </script>
 </body>
 </html>
+
 
 
 
