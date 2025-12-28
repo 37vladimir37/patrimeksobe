@@ -266,16 +266,23 @@
             }
         }
 
-        async function loadStats() {
-            try {
-                const res = await fetch(STATS_URL);
-                const data = await res.json();
-                document.getElementById('stat-views').innerText = data.views;
-                document.getElementById('stat-solves').innerText = data.solves;
-                const rate = data.views > 0 ? Math.round((data.solves / data.views) * 100) : 0;
-                document.getElementById('stat-rate').innerText = rate + "%";
-            } catch (e) { console.error("Statistiky nešlo načíst"); }
-        }
+async function loadStats() {
+    try {
+        // Oprava: Voláme přímo endpoint /stats bez dalšího lomítka
+        const res = await fetch(`${API_BASE}/stats`);
+        const data = await res.json();
+        
+        // Aktualizace polí v banneru
+        document.getElementById('stat-views').innerText = data.views || 0;
+        document.getElementById('stat-solves').innerText = data.solves || 0;
+        
+        // Výpočet úspěšnosti
+        const rate = data.views > 0 ? Math.round((data.solves / data.views) * 100) : 0;
+        document.getElementById('stat-rate').innerText = rate + "%";
+    } catch (e) { 
+        console.error("Statistiky nešlo načíst:", e); 
+    }
+}
 
         async function loadAvailableModels() {
             const select = document.getElementById('model-select');
@@ -395,56 +402,57 @@
             }
         }
 
-        async function loadGames() {
-            const res = await adminFetch(`${API_BASE}/list`);
-            if (!res) return;
-            const games = await res.json();
-            const listDiv = document.getElementById('games-list');
-            listDiv.innerHTML = '';
+async function loadGames() {
+    // Oprava: Voláme /list, kde probíhá synchronizace statistik do tabulky games
+    const res = await adminFetch(`${API_BASE}/list`);
+    if (!res) return;
+    const games = await res.json();
+    const listDiv = document.getElementById('games-list');
+    listDiv.innerHTML = '';
 
-            games.forEach(game => {
-                const div = document.createElement('div');
-                div.className = 'game-item';
+    games.forEach(game => {
+        const div = document.createElement('div');
+        div.className = 'game-item';
 
-                // Upravený výpočet v loadGames
-                const views = parseInt(game.final_views) || 0;
-                const solves = parseInt(game.final_solves) || 0;
-                const rate = views > 0 ? Math.round((solves / views) * 100) : 0;
+        // Čísla už přicházejí synchronizovaná z backendu
+        const views = parseInt(game.final_views) || 0;
+        const solves = parseInt(game.final_solves) || 0;
+        const rate = views > 0 ? Math.round((solves / views) * 100) : 0;
 
-                // Vylepšený HTML řádek statistik
-                let statsHtml = `
-                    <div style="margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; font-size: 0.85em; color: var(--text-dim); display: flex; gap: 15px;">
-                        <span>📊 <strong>${views}</strong> hráčů</span>
-                        <span>✅ <strong>${solves}</strong> vyřešeno</span>
-                        <span style="color: ${rate > 50 ? '#4CAF50' : '#ff9800'}">📈 Úspěšnost: <strong>${rate}%</strong></span>
-                    </div>
-                `;
+        let statsHtml = `
+            <div style="margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; font-size: 0.85em; color: var(--text-dim); display: flex; gap: 15px;">
+                <span>📊 <strong>${views}</strong> hráčů</span>
+                <span>✅ <strong>${solves}</strong> vyřešeno</span>
+                <span style="color: ${rate > 50 ? '#4CAF50' : '#ff9800'}">📈 Úspěšnost: <strong>${rate}%</strong></span>
+            </div>
+        `;
 
-                let statusInfo = game.used
-                    ? `<span style="color: #4CAF50; font-weight: bold;">✅ Publikováno: ${game.date_published}</span>`
-                    : `<span style="color: #999;">🕒 V pořadí (čeká)</span>`;
+        // Zbytek vykreslování zůstává stejný...
+        let statusInfo = game.used
+            ? `<span style="color: #4CAF50; font-weight: bold;">✅ Publikováno: ${game.date_published}</span>`
+            : `<span style="color: #999;">🕒 V pořadí (čeká)</span>`;
 
-                let categoriesHtml = game.categories.map((cat, i) => `
-                    <div style="margin-top: 5px; padding: 5px; border-radius: 4px; font-size: 0.8em;" class="cat-${i}">
-                        <strong>${cat.name}:</strong> ${cat.words.join(', ')}
-                    </div>
-                `).join('');
+        let categoriesHtml = game.categories.map((cat, i) => `
+            <div style="margin-top: 5px; padding: 5px; border-radius: 4px; font-size: 0.8em;" class="cat-${i}">
+                <strong>${cat.name}:</strong> ${cat.words.join(', ')}
+            </div>
+        `).join('');
 
-                div.innerHTML = `
-                    <div style="flex-grow: 1;">
-                        <div style="margin-bottom: 4px; font-size: 0.9em;">
-                            <strong>Hra #${game.id}</strong> | ${statusInfo}
-                        </div>
-                        ${game.used ? statsHtml : ''}
-                        <div style="margin-top: 10px;">
-                            ${categoriesHtml}
-                        </div>
-                    </div>
-                    <button class="btn btn-del" onclick="deleteGame(${game.id})" style="align-self: flex-start; margin-left: 15px;">Smazat</button>
-                `;
-                listDiv.appendChild(div);
-            });
-        }
+        div.innerHTML = `
+            <div style="flex-grow: 1;">
+                <div style="margin-bottom: 4px; font-size: 0.9em;">
+                    <strong>Hra #${game.id}</strong> | ${statusInfo}
+                </div>
+                ${game.used ? statsHtml : ''}
+                <div style="margin-top: 10px;">
+                    ${categoriesHtml}
+                </div>
+            </div>
+            <button class="btn btn-del" onclick="deleteGame(${game.id})" style="align-self: flex-start; margin-left: 15px;">Smazat</button>
+        `;
+        listDiv.appendChild(div);
+    });
+}
 
         async function deleteGame(id) {
             if (!confirm("Opravdu smazat?")) return;
@@ -459,6 +467,7 @@
     </script>
 </body>
 </html>
+
 
 
 
